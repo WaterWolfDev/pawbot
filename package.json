@@ -1,0 +1,17 @@
+{
+  "name": "pawbot",
+  "version": "1.0.0",
+  "description": "waterwolf pawbot",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --env-file=.env index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "redis": "^4.7.0"
+  }
+}
