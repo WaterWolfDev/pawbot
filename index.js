@@ -151,14 +151,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       description += `\` ${(ownIndex + 1).toString().padStart(2, ' ')} \` **<@${
         interaction.member.user.id
       }>** - ${
-        pawsSorted[ownIndex]
+        pawsSorted[interaction.member.user.id]
       } paw${pawsSorted[interaction.member.user.id] === 1 ? '' : 's'}`;
     } else if (count > 3) {
       const user = pawsArray[count - 1];
       const userPaws = pawsSorted[user];
       description += `\` ${count.toString().padStart(2, ' ')}  \` **<@${
         user?.username
-      }>** - ${userPaws.toLocaleString()} paws\n`;
+      }>** - ${paws[interaction.member.user.id]} paws\n`;
     }
 
     await interaction.reply({
