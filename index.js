@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits, EmbedBuilder, Events, SlashCommandBuilder, REST, Routes, userMention } from 'discord.js';
 import { createClient } from 'redis';
-import { openSync, closeSync } from 'fs';
+import { openSync, closeSync, unlinkSync } from 'fs';
+import * as http from 'node:http'
 
 const redisClient = createClient({url: process.env.REDIS_URL});
 redisClient.on('error', err => console.log('Redis Client Error', err));
@@ -85,6 +86,7 @@ const randomTimeBetween = (min, max) =>
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  closeSync(openSync("/tmp/pawbot-running", 'w'));
   try {
     console.log('Started refreshing application (/) commands.');
     let cmds = commands.map((c) => c.data.toJSON());
@@ -97,8 +99,6 @@ client.on('ready', async () => {
   } catch (error) {
     console.error(error);
   }
-
-  closeSync(openSync("/tmp/pawbot-running", 'w'));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -156,9 +156,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } else if (count > 3) {
       const user = pawsArray[count - 1];
       const userPaws = pawsSorted[user];
-      description += `\` ${count.toString().padStart(2, ' ')}  \` **<@${
-        user?.username
-      }>** - ${paws[interaction.member.user.id]} paws\n`;
+      description += `\` ${count.toString().padStart(2, ' ')}  \` **${ userMention(user) }** - ${paws[user]} paws\n`;
     }
 
     await interaction.reply({
@@ -345,7 +343,6 @@ client.on(Events.MessageCreate, async (message) => {
   } else {
     const [lastChannel, pawId] = (await redisClient.get('lastpaw'))?.split('-') || [];
     if (lastChannel != undefined || pawId != undefined) {
-
       message.guild.channels.cache.get(lastChannel).messages.fetch(pawId)
         .then((m) => m?.delete())
         .catch((e) => { console.error(`failed to delete paw message ${e}`) });
@@ -355,9 +352,47 @@ client.on(Events.MessageCreate, async (message) => {
   if (Math.random() > 0.3) return;
   const reply = await message.channel.send("🐶");
 
-  const cooldown = randomTimeBetween(3 * 60, 20 * 60);
+  const cooldown = 10;
   await redisClient.set('cooldown', "true", { EX: cooldown });
   await redisClient.set('lastpaw', `${message.channelId}-${reply.id}`);
 });
 
+process.on('SIGTERM', function onSigterm () {
+  console.info('Got SIGTERM. Graceful shutdown start', new Date().toISOString())
+  // start graceul shutdown here
+  unlinkSync("/tmp/pawbot-running");
+  process.exit()
+})
+
 client.login(process.env.DISCORD_TOKEN);
+
+const subscriber = redisClient.duplicate();
+subscriber.subscribe('__keyevent@0__:expired', (message) => {
+  console.log(message);
+})
+
+// Allows for fetching of paws (not cooldowns) in case we need
+// to restore in another location.
+const host = '0.0.0.0';
+const port = 8000;
+const requestListener = async function (req, res) {
+  if (req.url === '/api/paws') {
+    const paws = {};
+    for await (const key of redisClient.scanIterator({MATCH: "[1-9]*"})) {
+      paws[key] = parseInt(await redisClient.get(key), 10);
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(paws));
+  } else if (req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end('<h1>Welcome to the Pawbot API</h1><p>Visit <a href="/api/paws">/api/paws</a> to get paw data.</p>');
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/html' });
+    res.end('');
+  }
+};
+
+const server = http.createServer(requestListener);
+server.listen(port, host, () => {
+    console.log(`Server is running on http://${host}:${port}`);
+});
