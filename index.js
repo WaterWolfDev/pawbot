@@ -7,6 +7,15 @@ const redisClient = createClient({url: process.env.REDIS_URL});
 redisClient.on('error', err => console.log('Redis Client Error', err));
 await redisClient.connect();
 
+const pubSubRedisClient = createClient({url: process.env.REDIS_URL});
+pubSubRedisClient.on('error', err => console.log('Redis Client Error', err));
+await pubSubRedisClient.connect();
+
+console.log('subscribing to event')
+pubSubRedisClient.subscribe('__keyspace@0__:cooldown', (message) => {
+  console.log(message);
+});
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -86,7 +95,6 @@ const randomTimeBetween = (min, max) =>
 
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user.tag}!`);
-  closeSync(openSync("/tmp/pawbot-running", 'w'));
   try {
     console.log('Started refreshing application (/) commands.');
     let cmds = commands.map((c) => c.data.toJSON());
@@ -342,34 +350,29 @@ client.on(Events.MessageCreate, async (message) => {
 
   } else {
     const [lastChannel, pawId] = (await redisClient.get('lastpaw'))?.split('-') || [];
-    if (lastChannel != undefined || pawId != undefined) {
+    if (lastChannel != undefined && pawId != undefined) {
       message.guild.channels.cache.get(lastChannel).messages.fetch(pawId)
         .then((m) => m?.delete())
         .catch((e) => { console.error(`failed to delete paw message ${e}`) });
+      await redisClient.del('lastpaw');
     }
   }
 
   if (Math.random() > 0.3) return;
   const reply = await message.channel.send("🐶");
 
-  const cooldown = 10;
+  const cooldown = randomTimeBetween(3 * 60, 20 * 60);
   await redisClient.set('cooldown', "true", { EX: cooldown });
   await redisClient.set('lastpaw', `${message.channelId}-${reply.id}`);
 });
 
 process.on('SIGTERM', function onSigterm () {
   console.info('Got SIGTERM. Graceful shutdown start', new Date().toISOString())
-  // start graceul shutdown here
-  unlinkSync("/tmp/pawbot-running");
   process.exit()
 })
 
 client.login(process.env.DISCORD_TOKEN);
 
-const subscriber = redisClient.duplicate();
-subscriber.subscribe('__keyevent@0__:expired', (message) => {
-  console.log(message);
-})
 
 // Allows for fetching of paws (not cooldowns) in case we need
 // to restore in another location.
@@ -386,6 +389,9 @@ const requestListener = async function (req, res) {
   } else if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end('<h1>Welcome to the Pawbot API</h1><p>Visit <a href="/api/paws">/api/paws</a> to get paw data.</p>');
+  } else if (req.url === '/healthz') {
+    res.writeHead(client.isReady() ? 200 : 503, { 'Content-Type': 'text/plain' });
+    res.end(`${client.isReady()}`);
   } else {
     res.writeHead(404, { 'Content-Type': 'text/html' });
     res.end('');
