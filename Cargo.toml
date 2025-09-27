@@ -1,0 +1,13 @@
+[package]
+name = "pawbot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dotenv = "0.15.0"
+serenity = "0.12.4"
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread", "time", "sync", "signal"] }
+poise = "0.6.1"
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "sqlite", "time"] }
+time = "0.3.44"
+rand = "0.9.2"
