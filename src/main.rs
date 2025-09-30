@@ -1,6 +1,6 @@
 mod paw_commands;
 
-use sqlx::{Connection, Pool, Postgres};
+use sqlx::{Pool, Postgres};
 use std::env;
 use poise::serenity_prelude as serenity;
 
@@ -52,6 +52,9 @@ async fn main() {
 #[poise::command(slash_command, subcommands(
     "paw_commands::daily::daily",
     "paw_commands::gamble::gamble",
+    "paw_commands::balance::balance",
+    "paw_commands::give::give",
+    "paw_commands::steal::steal",
 ))]
 pub async fn paw(_ctx: Context<'_>) -> Result<(), Error> {
     Ok(())

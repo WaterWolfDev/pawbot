@@ -91,11 +91,9 @@ fn build_result(won: bool, count: i32, new_count: i32) -> String {
     let plural_s_count = if count == 1 { "" } else { "s" };
     let plural_s_new_count = if new_count == 1 { "" } else { "s" };
 
-    let dog_emojis = "🐶".repeat(new_count as usize);
-
     format!(
         "Your gambling {outcome_phrase}, you {result_verb} {count} paw{plural_s_count}, \
         {preposition_phrase} a total of {new_count} paw{plural_s_new_count}. \
-        {dog_emojis} {trend_emoji}"
+        {trend_emoji}"
     )
 }

@@ -25,7 +25,6 @@ pub async fn daily(
         ).await?;
         return Ok(());
     }
-
     let mut tx = conn.begin().await?;
     sqlx::query("DELETE FROM cooldowns WHERE user_id = $1 AND action = $2")
         .bind(user_id)
