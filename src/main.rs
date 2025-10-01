@@ -1,14 +1,11 @@
-mod paw_commands;
+mod paws;
 mod webserver;
 
 use env_logger::Env;
-use log::{debug, info};
 use poise::serenity_prelude as serenity;
-use rand::random_bool;
-use serenity::builder::CreateMessage;
 use sqlx::{Pool, Postgres};
-use std::{env, ops::Add};
-use time::{OffsetDateTime, ext::NumericalDuration};
+use std::env;
+use crate::paws::event_handler;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
 #[sqlx(type_name = "cooldown_action", rename_all = "lowercase")]
@@ -42,9 +39,9 @@ async fn main() {
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![paw()],
+            commands: vec![paws::paw()],
             event_handler: |ctx, event, framework, data| {
-                Box::pin(random_paw_handler(ctx, event, framework, data))
+                Box::pin(event_handler::handler(ctx, event, framework, data))
             },
             ..Default::default()
         })
@@ -64,163 +61,4 @@ async fn main() {
     tokio::join!(webserver, client.start())
         .1
         .expect("Discord client failed");
-}
-
-#[poise::command(
-    slash_command,
-    subcommands(
-        "paw_commands::daily::daily",
-        "paw_commands::gamble::gamble",
-        "paw_commands::balance::balance",
-        "paw_commands::give::give",
-        "paw_commands::steal::steal",
-        "paw_commands::top::top",
-    )
-)]
-pub async fn paw(_ctx: Context<'_>) -> Result<(), Error> {
-    Ok(())
-}
-
-#[derive(sqlx::FromRow, Debug, PartialEq, Eq, Clone)]
-struct RandomPaw {
-    message_id: i64,
-    channel_id: i64,
-    created: OffsetDateTime,
-    claimed: bool,
-}
-
-pub async fn random_paw_handler(
-    ctx: &serenity::Context,
-    event: &serenity::FullEvent,
-    _framework: poise::FrameworkContext<'_, AppState, Error>,
-    state: &AppState,
-) -> Result<(), Error> {
-    match event {
-        serenity::FullEvent::Ready { data_about_bot, .. } => {
-            info!("Logged in as {}", data_about_bot.user.name);
-        }
-        serenity::FullEvent::Message { new_message } => {
-            if new_message.author.bot {
-                return Ok(());
-            }
-            debug!(
-                "got message: \"{}\" in {}",
-                new_message.content,
-                new_message.channel_id.get()
-            );
-            let conn = &state.db;
-            let paw = latest_random_paw(ctx, conn, new_message.channel_id.get() as i64).await;
-
-            if new_message.content == "🐶" && paw.is_ok() {
-                let paw = paw?;
-                let claimed =
-                    claim_random_paw(conn, paw.clone(), new_message.author.id.get() as i64).await;
-                if claimed.is_ok() {
-                    new_message
-                        .reply(
-                            ctx,
-                            format!(
-                                "<@{}> has claimed a paw and now holds onto {}",
-                                new_message.author.id.get(),
-                                claimed.unwrap()
-                            ),
-                        )
-                        .await?;
-                    new_message.delete(ctx).await?;
-                    ctx.http
-                        .delete_message(
-                            paw.channel_id.to_string().parse().unwrap(),
-                            paw.message_id.to_string().parse().unwrap(),
-                            None,
-                        )
-                        .await?;
-                } else {
-                    println!("{}", claimed.err().unwrap())
-                }
-                return Ok(());
-            }
-
-            if random_bool(1.0 / 3.0) && paw.is_err() {
-                debug!(
-                    "rolled random change, spawning paw in {}",
-                    new_message.channel_id
-                );
-                let new_random = new_message
-                    .channel_id
-                    .send_message(ctx, CreateMessage::new().content("🐶"))
-                    .await?;
-                let mut tx = conn.begin().await?;
-                sqlx::query("INSERT INTO random_paws VALUES ($1, $2, $3)")
-                    .bind(new_random.id.get() as i64)
-                    .bind(new_random.channel_id.get() as i64)
-                    .bind(OffsetDateTime::now_utc())
-                    .execute(&mut *tx)
-                    .await?;
-                tx.commit().await?;
-            }
-        }
-        _ => {}
-    }
-
-    Ok(())
-}
-
-async fn latest_random_paw(
-    ctx: &serenity::Context,
-    conn: &Pool<Postgres>,
-    channel_id: i64,
-) -> Result<RandomPaw, Error> {
-    let last_random: Option<RandomPaw> =
-        sqlx::query_as("SELECT * FROM random_paws WHERE channel_id = $1 AND claimed = false;")
-            .bind(channel_id)
-            .fetch_optional(conn)
-            .await?;
-
-    match last_random {
-        Some(paw) => {
-            // If more than 10 minutes old, consider it expired.
-            if paw.created < OffsetDateTime::now_utc().add(-10.minutes()) {
-                debug!(
-                    "random paw in {} is more than 10 minutes old, expiring",
-                    channel_id
-                );
-                let mut tx = conn.begin().await?;
-                sqlx::query("UPDATE random_paws SET claimed = true WHERE message_id = $1;")
-                    .bind(paw.message_id)
-                    .execute(&mut *tx)
-                    .await?;
-                tx.commit().await?;
-                ctx.http
-                    .delete_message(
-                        paw.channel_id.to_string().parse().unwrap(),
-                        paw.message_id.to_string().parse().unwrap(),
-                        None,
-                    )
-                    .await?;
-                return Err(Error::from("expired paw"));
-            }
-            Ok(paw)
-        }
-        None => Err(Error::from("no existing paw")),
-    }
-}
-
-async fn claim_random_paw(
-    conn: &Pool<Postgres>,
-    paw: RandomPaw,
-    user_id: i64,
-) -> Result<i32, Error> {
-    let mut tx = conn.begin().await?;
-    let paws: (i32,) = sqlx::query_as("INSERT INTO paws (amount, user_id) VALUES (1, $1) ON CONFLICT(user_id) DO UPDATE SET amount = paws.amount + 1 RETURNING paws.amount;")
-        .bind(user_id)
-        .fetch_one(&mut *tx)
-        .await?;
-
-    sqlx::query("UPDATE random_paws SET claimed = true WHERE message_id = $1;")
-        .bind(paw.message_id)
-        .execute(&mut *tx)
-        .await?;
-    tx.commit().await?;
-
-    Ok(paws.0)
 }
