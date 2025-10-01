@@ -61,7 +61,6 @@ pub async fn gamble(
     sqlx::query("DELETE FROM cooldowns WHERE user_id = $1 AND action = $2")
         .bind(user_id)
         .bind(CooldownAction::Gamble)
-        .bind(ctx.guild_id().unwrap().get() as i64)
         .execute(&mut *tx)
         .await?;
 

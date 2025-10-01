@@ -5,11 +5,11 @@ CREATE TABLE paws (
 );
 -- cooldowns tracks the last time a user performed some action
 -- so that cooldowns can persist across bot restarts
-CREATE TYPE cooldown_action AS ENUM ('paw', 'steal', 'gamble');
+CREATE TYPE cooldown_action AS ENUM ('paw', 'steal', 'gamble', 'spawn');
 CREATE TABLE cooldowns (
-    user_id BIGINT NOT NULL,
+    user_id BIGINT,
     action cooldown_action NOT NULL,
-    expires timestamptz
+    expires timestamptz NOT NULL
 );
 
 CREATE TABLE random_paws (

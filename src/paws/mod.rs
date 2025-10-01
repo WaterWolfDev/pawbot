@@ -1,7 +1,8 @@
-use serenity::Client;
+use log::{error, info};
 use sqlx::{Pool, Postgres};
 use crate::{AppState, Context, Error};
 use poise::serenity_prelude as serenity;
+use tokio::sync::watch::Receiver;
 
 pub mod balance;
 pub mod daily;
@@ -11,7 +12,7 @@ pub mod steal;
 pub mod top;
 pub mod event_handler;
 
-pub async fn client(conn: Pool<Postgres>, token: String) -> Client {
+pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: String) -> () {
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
 
@@ -31,10 +32,30 @@ pub async fn client(conn: Pool<Postgres>, token: String) -> Client {
         })
         .build();
 
-    serenity::ClientBuilder::new(token, intents)
+
+    let mut client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
         .await
-        .expect("Err creating client")
+        .expect("Err creating client");
+
+    let shard_manager = client.shard_manager.clone();
+    let graceful_shutdown_future = async move {
+        receiver.changed().await.ok();
+        info!("Poise bot received shutdown signal. Shutting down...");
+        // Use the shard manager to gracefully shut down the bot.
+        shard_manager.shutdown_all().await;
+    };
+
+    tokio::select! {
+        result = client.start() => {
+            if let Err(why) = result {
+                error!("Poise client error: {:?}", why);
+            }
+        },
+        _ = graceful_shutdown_future => {
+            info!("Poise bot shutdown process completed.");
+        },
+    }
 }
 
 #[poise::command(

@@ -1,25 +1,35 @@
-use axum::Router;
-use axum::extract::State;
-use axum::http::StatusCode;
-use axum::response::Html;
-use axum::routing::get;
-use axum::serve::Serve;
+use axum::{
+    Router,
+    extract::State,
+    http::StatusCode,
+    response::Html,
+    routing::get,
+};
 use log::{error, info};
 use sqlx::{Pool, Postgres};
 use std::net::SocketAddr;
+use axum::serve::WithGracefulShutdown;
 use tokio::net::TcpListener;
+use tokio::sync::watch::Receiver;
 
-pub async fn new(conn: Pool<Postgres>) -> Serve<TcpListener, Router, Router> {
+pub async fn new(conn: Pool<Postgres>, mut receiver: Receiver<()>) -> WithGracefulShutdown<TcpListener, Router, Router, impl Future<Output=()>> {
     let router = Router::new()
         .route("/", get(root_handler))
         .route("/healthz", get(health_handler))
         .with_state(conn);
+
+    let graceful_shutdown_future = async move {
+        // `changed()` resolves when a new value is sent, or the sender is dropped.
+        receiver.changed().await.ok();
+        info!("Axum server received shutdown signal. Shutting down...");
+    };
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = TcpListener::bind(addr).await.unwrap();
     info!("Webserver listening on {}", addr);
 
     axum::serve(listener, router)
+        .with_graceful_shutdown(graceful_shutdown_future)
 }
 
 async fn root_handler(State(conn): State<Pool<Postgres>>) -> Html<String> {

@@ -1,12 +1,12 @@
 use std::ops::Add;
 use log::{debug, info};
 use poise::serenity_prelude as serenity;
-use rand::random_bool;
+use rand::{random_bool, random_range};
 use serenity::builder::CreateMessage;
 use sqlx::{Pool, Postgres};
 use time::ext::NumericalDuration;
 use time::OffsetDateTime;
-use crate::{AppState, Error};
+use crate::{AppState, CooldownAction, Error};
 
 const WHITELIST_CHANNELS: &'static [&'static str] = &[
     "967074642076516367",
@@ -84,6 +84,16 @@ pub async fn handler(
                 return Ok(());
             }
 
+            let expiry: Option<(OffsetDateTime,)> =
+                sqlx::query_as("SELECT expires FROM cooldowns WHERE action = $1")
+                    .bind(CooldownAction::Spawn)
+                    .fetch_optional(conn)
+                    .await?;
+            let now = OffsetDateTime::now_utc();
+
+            if expiry.is_some() && expiry.unwrap().0 > now {
+                return Ok(())
+            }
             if random_bool(1.0 / 3.0) && paw.is_err() {
                 debug!(
                     "rolled random change, spawning paw in {}",
@@ -94,13 +104,27 @@ pub async fn handler(
                     .send_message(ctx, CreateMessage::new().content("🐶"))
                     .await?;
                 let mut tx = conn.begin().await?;
+                sqlx::query("DELETE FROM cooldowns WHERE action = $1")
+                    .bind(CooldownAction::Spawn)
+                    .execute(&mut *tx)
+                    .await?;
+
                 sqlx::query("INSERT INTO random_paws VALUES ($1, $2, $3)")
                     .bind(new_random.id.get() as i64)
                     .bind(new_random.channel_id.get() as i64)
                     .bind(OffsetDateTime::now_utc())
                     .execute(&mut *tx)
                     .await?;
+
+                let timeout = random_range(2..20);
+                let cooldown_expires = now.add(timeout.minutes());
+                sqlx::query("INSERT INTO cooldowns (action, expires) VALUES ($1,$2)")
+                    .bind(CooldownAction::Spawn)
+                    .bind(cooldown_expires)
+                    .execute(&mut *tx)
+                    .await?;
                 tx.commit().await?;
+                debug!("random spawn expires in {} minutes", timeout);
             }
         }
         _ => {}

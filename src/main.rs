@@ -1,9 +1,11 @@
 mod paws;
 mod webserver;
 
-use env_logger::Env;
 use sqlx::{Pool, Postgres};
 use std::env;
+use std::time::Duration;
+use log::{error, info};
+use tokio::sync::watch;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
 #[sqlx(type_name = "cooldown_action", rename_all = "lowercase")]
@@ -11,6 +13,7 @@ pub enum CooldownAction {
     Paw,
     Steal,
     Gamble,
+    Spawn,
 }
 
 pub struct AppState {
@@ -22,7 +25,9 @@ type Context<'a> = poise::Context<'a, AppState, Error>;
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::init();
+
+    let (shutdown_tx, shutdown_rx) = watch::channel(());
 
     let token = env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN");
     let db_url = env::var("DATABASE_URL").expect("missing DATABASE_URL");
@@ -31,10 +36,24 @@ async fn main() {
         .await
         .expect("Can't connect to database");
 
-    let webserver = webserver::new(conn.clone()).await;
-    let mut client = paws::client(conn.clone(), token).await;
+    let poise_handle = tokio::spawn(paws::client(conn.clone(), shutdown_rx.clone() ,token));
+    let webserver_handle = tokio::spawn(webserver::new(conn.clone(), shutdown_rx.clone()));
 
-    tokio::join!(webserver, client.start())
-        .1
-        .expect("Discord client failed");
+    match tokio::signal::ctrl_c().await {
+        Ok(()) => {
+            info!("Ctrl+C received. Initiating graceful shutdown...");
+        }
+        Err(err) => {
+            error!("Failed to listen for Ctrl+C: {}. Shutting down immediately.", err);
+        }
+    }
+    drop(shutdown_tx);
+    info!("Shutdown signal broadcasted.");
+    info!("Waiting for all tasks to finish...");
+
+    let _ = tokio::time::timeout(Duration::from_secs(10), poise_handle).await;
+    let _ = tokio::time::timeout(Duration::from_secs(10), webserver_handle).await;
+
+    info!("All services have been shut down. Exiting.");
+
 }
