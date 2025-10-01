@@ -7,10 +7,8 @@ use poise::serenity_prelude as serenity;
 use rand::random_bool;
 use serenity::builder::CreateMessage;
 use sqlx::{Pool, Postgres};
-use std::env;
-use std::ops::Add;
-use time::OffsetDateTime;
-use time::ext::NumericalDuration;
+use std::{env, ops::Add};
+use time::{OffsetDateTime, ext::NumericalDuration};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
 #[sqlx(type_name = "cooldown_action", rename_all = "lowercase")]
@@ -111,70 +109,42 @@ pub async fn random_paw_handler(
                 new_message.channel_id.get()
             );
             let conn = &state.db;
-            let last_random: Option<RandomPaw> = sqlx::query_as(
-                "SELECT * FROM random_paws WHERE channel_id = $1 AND claimed = false;",
-            )
-            .bind(new_message.channel_id.get() as i64)
-            .fetch_optional(conn)
-            .await?;
+            let paw = latest_random_paw(ctx, conn, new_message.channel_id.get() as i64).await;
 
-            if new_message.content == "🐶" {
-                match last_random {
-                    Some(paw) => {
-                        // If more than 10 minutes old, consider it expired.
-                        if paw.created > OffsetDateTime::now_utc().add(10.minutes()) {
-                            let mut tx = conn.begin().await?;
-                            sqlx::query(
-                                "UPDATE random_paws SET claimed = true WHERE message_id = $1;",
-                            )
-                            .bind(paw.message_id)
-                            .execute(&mut *tx)
-                            .await?;
-                            tx.commit().await?;
-                            ctx.http
-                                .delete_message(
-                                    paw.channel_id.to_string().parse().unwrap(),
-                                    paw.message_id.to_string().parse().unwrap(),
-                                    None,
-                                )
-                                .await?;
-                            return Ok(());
-                        }
-
-                        let claimed =
-                            claim_random_paw(conn, paw.clone(), new_message.author.id.get() as i64)
-                                .await;
-                        if claimed.is_ok() {
-                            new_message
-                                .reply(
-                                    ctx,
-                                    format!(
-                                        "<@{}> has claimed a paw and now holds onto {}",
-                                        new_message.author.id.get(),
-                                        claimed.unwrap()
-                                    ),
-                                )
-                                .await?;
-                            new_message.delete(ctx).await?;
-                            ctx.http
-                                .delete_message(
-                                    paw.channel_id.to_string().parse().unwrap(),
-                                    paw.message_id.to_string().parse().unwrap(),
-                                    None,
-                                )
-                                .await?;
-                        } else {
-                            println!("{}", claimed.err().unwrap())
-                        }
-                    }
-                    None => {
-                        // Do nothing.
-                    }
+            if new_message.content == "🐶" && paw.is_ok() {
+                let paw = paw?;
+                let claimed =
+                    claim_random_paw(conn, paw.clone(), new_message.author.id.get() as i64).await;
+                if claimed.is_ok() {
+                    new_message
+                        .reply(
+                            ctx,
+                            format!(
+                                "<@{}> has claimed a paw and now holds onto {}",
+                                new_message.author.id.get(),
+                                claimed.unwrap()
+                            ),
+                        )
+                        .await?;
+                    new_message.delete(ctx).await?;
+                    ctx.http
+                        .delete_message(
+                            paw.channel_id.to_string().parse().unwrap(),
+                            paw.message_id.to_string().parse().unwrap(),
+                            None,
+                        )
+                        .await?;
+                } else {
+                    println!("{}", claimed.err().unwrap())
                 }
                 return Ok(());
             }
 
-            if random_bool(1.0 / 3.0) {
+            if random_bool(1.0 / 3.0) && paw.is_err() {
+                debug!(
+                    "rolled random change, spawning paw in {}",
+                    new_message.channel_id
+                );
                 let new_random = new_message
                     .channel_id
                     .send_message(ctx, CreateMessage::new().content("🐶"))
@@ -193,6 +163,46 @@ pub async fn random_paw_handler(
     }
 
     Ok(())
+}
+
+async fn latest_random_paw(
+    ctx: &serenity::Context,
+    conn: &Pool<Postgres>,
+    channel_id: i64,
+) -> Result<RandomPaw, Error> {
+    let last_random: Option<RandomPaw> =
+        sqlx::query_as("SELECT * FROM random_paws WHERE channel_id = $1 AND claimed = false;")
+            .bind(channel_id)
+            .fetch_optional(conn)
+            .await?;
+
+    match last_random {
+        Some(paw) => {
+            // If more than 10 minutes old, consider it expired.
+            if paw.created < OffsetDateTime::now_utc().add(-10.minutes()) {
+                debug!(
+                    "random paw in {} is more than 10 minutes old, expiring",
+                    channel_id
+                );
+                let mut tx = conn.begin().await?;
+                sqlx::query("UPDATE random_paws SET claimed = true WHERE message_id = $1;")
+                    .bind(paw.message_id)
+                    .execute(&mut *tx)
+                    .await?;
+                tx.commit().await?;
+                ctx.http
+                    .delete_message(
+                        paw.channel_id.to_string().parse().unwrap(),
+                        paw.message_id.to_string().parse().unwrap(),
+                        None,
+                    )
+                    .await?;
+                return Err(Error::from("expired paw"));
+            }
+            Ok(paw)
+        }
+        None => Err(Error::from("no existing paw")),
+    }
 }
 
 async fn claim_random_paw(
