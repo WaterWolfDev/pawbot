@@ -13,7 +13,7 @@ pub async fn new(conn: Pool<Postgres>) -> Serve<TcpListener, Router, Router> {
     let router = Router::new()
         .route("/", get(root_handler))
         .route("/healthz", get(health_handler))
-        .with_state(conn.clone());
+        .with_state(conn);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
     let listener = TcpListener::bind(addr).await.unwrap();
