@@ -1,4 +1,5 @@
 mod paw_commands;
+mod webserver;
 
 use env_logger::Env;
 use log::{debug, info};
@@ -39,6 +40,8 @@ async fn main() {
         .await
         .expect("Can't connect to database");
 
+    let webserver = webserver::new(conn.clone()).await;
+
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands: vec![paw()],
@@ -50,15 +53,19 @@ async fn main() {
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(AppState { db: conn })
+                Ok(AppState { db: conn.clone() })
             })
         })
         .build();
 
-    let client = serenity::ClientBuilder::new(token, intents)
+    let mut client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)
-        .await;
-    client.unwrap().start().await.unwrap();
+        .await
+        .expect("Err creating client");
+
+    tokio::join!(webserver, client.start())
+        .1
+        .expect("Discord client failed");
 }
 
 #[poise::command(
