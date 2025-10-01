@@ -1,18 +1,15 @@
-use std::ops::Add;
+use crate::{Context, CooldownAction, Error};
 use poise::CreateReply;
 use rand::{random_bool, random_range};
 use serenity::all::User;
+use std::ops::Add;
 use time::ext::NumericalDuration;
-use crate::{Context, CooldownAction, Error};
 
 #[poise::command(slash_command)]
-pub async fn steal(
-    ctx: Context<'_>,
-    who: User,
-    count: i32
-) -> Result<(), Error> {
+pub async fn steal(ctx: Context<'_>, who: User, count: i32) -> Result<(), Error> {
     if count > 10 {
-        ctx.reply("You can only steal a maximum of 10 paws!".to_string()).await?;
+        ctx.reply("You can only steal a maximum of 10 paws!".to_string())
+            .await?;
         return Ok(());
     }
 
@@ -20,18 +17,21 @@ pub async fn steal(
     let target_id = who.id.get() as i64;
     let conn = &ctx.data().db;
 
-    let expiry: Option<(time::OffsetDateTime,)> = sqlx::query_as("SELECT expires FROM cooldowns WHERE user_id = $1 AND action = $2")
-        .bind(user_id)
-        .bind(CooldownAction::Steal)
-        .fetch_optional(conn)
-        .await?;
+    let expiry: Option<(time::OffsetDateTime,)> =
+        sqlx::query_as("SELECT expires FROM cooldowns WHERE user_id = $1 AND action = $2")
+            .bind(user_id)
+            .bind(CooldownAction::Steal)
+            .fetch_optional(conn)
+            .await?;
     let now = time::OffsetDateTime::now_utc();
 
     if expiry.is_some() && expiry.unwrap().0 > now {
-        ctx.send(CreateReply::default()
-            .ephemeral(true)
-            .content("The fuzz is hot on your tail, lay low for a while.")
-        ).await?;
+        ctx.send(
+            CreateReply::default()
+                .ephemeral(true)
+                .content("The fuzz is hot on your tail, lay low for a while."),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -42,11 +42,12 @@ pub async fn steal(
 
     let paws: i32 = match paws {
         Some(c) => c.0,
-        None => 0
+        None => 0,
     };
 
     if paws == 0 || paws < count {
-        ctx.reply("You can only steal as many paws as you have!".to_string()).await?;
+        ctx.reply("You can only steal as many paws as you have!".to_string())
+            .await?;
         return Ok(());
     }
 
@@ -57,11 +58,12 @@ pub async fn steal(
 
     let target_paws: i32 = match target_paws {
         Some(c) => c.0,
-        None => 0
+        None => 0,
     };
 
     if target_paws == 0 || target_paws < count {
-        ctx.reply("That user doesn't have enough paws!".to_string()).await?;
+        ctx.reply("That user doesn't have enough paws!".to_string())
+            .await?;
         return Ok(());
     }
 
@@ -69,7 +71,7 @@ pub async fn steal(
     let mut new_paws = paws + count;
     let (sender, receiver) = match result {
         true => (target_id, user_id),
-        false => (user_id, target_id)
+        false => (user_id, target_id),
     };
     if !result {
         new_paws = paws - count;
@@ -118,7 +120,11 @@ fn build_steal_result(won: bool, count: i32, new_count: i32, target: User) -> St
     let outcome_phrase = if won { "paid off" } else { "sucked" };
     let result_verb = if won { "stole" } else { "gave" };
     let result_target_prefix = if won { "from" } else { "to" };
-    let preposition_phrase = if won { "giving you" } else { "leaving you with" };
+    let preposition_phrase = if won {
+        "giving you"
+    } else {
+        "leaving you with"
+    };
     let trend_emoji = if won { '📈' } else { '📉' };
 
     let plural_s_count = if count == 1 { "" } else { "s" };

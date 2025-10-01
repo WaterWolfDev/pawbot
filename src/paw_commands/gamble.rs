@@ -1,8 +1,8 @@
-use std::ops::Add;
+use crate::{Context, CooldownAction, Error};
 use poise::CreateReply;
 use rand::{random_bool, random_range};
+use std::ops::Add;
 use time::ext::NumericalDuration;
-use crate::{Context, CooldownAction, Error};
 
 #[poise::command(slash_command)]
 pub async fn gamble(
@@ -12,11 +12,12 @@ pub async fn gamble(
     let user_id = ctx.author().id.get() as i64;
     let conn = &ctx.data().db;
 
-    let expiry: Option<(time::OffsetDateTime,)> = sqlx::query_as("SELECT expires FROM cooldowns WHERE user_id = $1 AND action = $2")
-        .bind(user_id)
-        .bind(CooldownAction::Gamble)
-        .fetch_optional(conn)
-        .await?;
+    let expiry: Option<(time::OffsetDateTime,)> =
+        sqlx::query_as("SELECT expires FROM cooldowns WHERE user_id = $1 AND action = $2")
+            .bind(user_id)
+            .bind(CooldownAction::Gamble)
+            .fetch_optional(conn)
+            .await?;
     let now = time::OffsetDateTime::now_utc();
 
     if expiry.is_some() && expiry.unwrap().0 > now {
@@ -34,13 +35,15 @@ pub async fn gamble(
 
     let can_gamble: bool = match current_paws {
         Some(c) => c.0 > 0 || c.0 >= count,
-        None => false
+        None => false,
     };
     if !can_gamble {
-        ctx.send(CreateReply::default()
-            .ephemeral(true)
-            .content("You can only gamble as many paws as you have! (Up to 10)")
-        ).await?;
+        ctx.send(
+            CreateReply::default()
+                .ephemeral(true)
+                .content("You can only gamble as many paws as you have! (Up to 10)"),
+        )
+        .await?;
         return Ok(());
     }
 
@@ -50,7 +53,9 @@ pub async fn gamble(
     if !result {
         new_paws = current_paws + (count * -1);
     }
-    if new_paws < 0 { new_paws = 0; /* How did you get here. */ }
+    if new_paws < 0 {
+        new_paws = 0; /* How did you get here. */
+    }
 
     let mut tx = conn.begin().await?;
     sqlx::query("DELETE FROM cooldowns WHERE user_id = $1 AND action = $2")
@@ -85,7 +90,11 @@ pub async fn gamble(
 fn build_result(won: bool, count: i32, new_count: i32) -> String {
     let outcome_phrase = if won { "paid off" } else { "sucked" };
     let result_verb = if won { "won" } else { "lost" };
-    let preposition_phrase = if won { "giving you" } else { "leaving you with" };
+    let preposition_phrase = if won {
+        "giving you"
+    } else {
+        "leaving you with"
+    };
     let trend_emoji = if won { '📈' } else { '📉' };
 
     let plural_s_count = if count == 1 { "" } else { "s" };

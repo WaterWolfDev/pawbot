@@ -1,15 +1,15 @@
 mod paw_commands;
 
+use poise::serenity_prelude as serenity;
 use sqlx::{Pool, Postgres};
 use std::env;
-use poise::serenity_prelude as serenity;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
 #[sqlx(type_name = "cooldown_action", rename_all = "lowercase")]
 pub enum CooldownAction {
     Paw,
     Steal,
-    Gamble
+    Gamble,
 }
 
 struct AppState {
@@ -26,7 +26,9 @@ async fn main() {
     let db_url = env::var("DATABASE_URL").expect("missing DATABASE_URL");
     let intents = serenity::GatewayIntents::non_privileged();
 
-    let conn = Pool::connect(&db_url).await.expect("Can't connect to database");
+    let conn = Pool::connect(&db_url)
+        .await
+        .expect("Can't connect to database");
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
@@ -36,9 +38,7 @@ async fn main() {
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
-                Ok(AppState {
-                    db: conn,
-                })
+                Ok(AppState { db: conn })
             })
         })
         .build();
@@ -49,13 +49,17 @@ async fn main() {
     client.unwrap().start().await.unwrap();
 }
 
-#[poise::command(slash_command, subcommands(
-    "paw_commands::daily::daily",
-    "paw_commands::gamble::gamble",
-    "paw_commands::balance::balance",
-    "paw_commands::give::give",
-    "paw_commands::steal::steal",
-))]
+#[poise::command(
+    slash_command,
+    subcommands(
+        "paw_commands::daily::daily",
+        "paw_commands::gamble::gamble",
+        "paw_commands::balance::balance",
+        "paw_commands::give::give",
+        "paw_commands::steal::steal",
+        "paw_commands::top::top",
+    )
+)]
 pub async fn paw(_ctx: Context<'_>) -> Result<(), Error> {
     Ok(())
 }

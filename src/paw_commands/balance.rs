@@ -1,9 +1,7 @@
 use crate::{Context, Error};
 
 #[poise::command(slash_command)]
-pub async fn balance(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+pub async fn balance(ctx: Context<'_>) -> Result<(), Error> {
     let user_id = ctx.author().id.get() as i64;
     let conn = &ctx.data().db;
 
@@ -14,7 +12,7 @@ pub async fn balance(
 
     let paws: i32 = match paws {
         Some(c) => c.0,
-        None => 0
+        None => 0,
     };
 
     ctx.reply(format!("You have {} paws!", paws)).await?;

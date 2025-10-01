@@ -1,28 +1,29 @@
-use std::ops::Add;
+use crate::{Context, CooldownAction, Error};
 use poise::CreateReply;
+use std::ops::Add;
 use time::ext::NumericalDuration;
 use time::macros::time;
-use crate::{Context, CooldownAction, Error};
 
 #[poise::command(slash_command)]
-pub async fn daily(
-    ctx: Context<'_>,
-) -> Result<(), Error> {
+pub async fn daily(ctx: Context<'_>) -> Result<(), Error> {
     let user_id = ctx.author().id.get() as i64;
     let conn = &ctx.data().db;
 
-    let expiry: Option<(time::OffsetDateTime,)> = sqlx::query_as("SELECT expires FROM cooldowns WHERE user_id = $1 AND action = $2")
-        .bind(user_id)
-        .bind(CooldownAction::Paw)
-        .fetch_optional(conn)
-        .await?;
+    let expiry: Option<(time::OffsetDateTime,)> =
+        sqlx::query_as("SELECT expires FROM cooldowns WHERE user_id = $1 AND action = $2")
+            .bind(user_id)
+            .bind(CooldownAction::Paw)
+            .fetch_optional(conn)
+            .await?;
     let now = time::OffsetDateTime::now_utc();
 
     if expiry.is_some() && expiry.unwrap().0 > now {
-        ctx.send(CreateReply::default()
-            .ephemeral(true)
-            .content("You've already claimed your daily paw!")
-        ).await?;
+        ctx.send(
+            CreateReply::default()
+                .ephemeral(true)
+                .content("You've already claimed your daily paw!"),
+        )
+        .await?;
         return Ok(());
     }
     let mut tx = conn.begin().await?;
@@ -48,7 +49,11 @@ pub async fn daily(
         .await?;
     tx.commit().await?;
 
-    ctx.reply(format!("You claimed your daily paw, and now hold onto {} paws!", paws.0)).await?;
+    ctx.reply(format!(
+        "You claimed your daily paw, and now hold onto {} paws!",
+        paws.0
+    ))
+    .await?;
 
     Ok(())
 }
