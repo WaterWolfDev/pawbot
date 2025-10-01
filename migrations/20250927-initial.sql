@@ -1,6 +1,6 @@
 -- paws table is user <-> paw count <-> server mapping
 CREATE TABLE paws (
-    user_id BIGINT NOT NULL PRIMARY KEY ,
+    user_id BIGINT NOT NULL PRIMARY KEY,
     amount INTEGER DEFAULT 0
 );
 -- cooldowns tracks the last time a user performed some action
@@ -10,4 +10,11 @@ CREATE TABLE cooldowns (
     user_id BIGINT NOT NULL,
     action cooldown_action NOT NULL,
     expires timestamptz
+);
+
+CREATE TABLE random_paws (
+    message_id BIGINT NOT NULL PRIMARY KEY ,
+    channel_id BIGINT NOT NULL,
+    created timestamptz,
+    claimed BOOLEAN NOT NULL DEFAULT false
 );

@@ -2,7 +2,7 @@ use crate::{Context, Error};
 use serenity::all::User;
 
 #[poise::command(slash_command)]
-pub async fn give(ctx: Context<'_>, receiver: User, count: i32) -> Result<(), Error> {
+pub async fn give(ctx: Context<'_>, who: User, count: i32) -> Result<(), Error> {
     if count > 10 {
         ctx.reply("You can only give away a maximum of 10 paws!".to_string())
             .await?;
@@ -29,7 +29,6 @@ pub async fn give(ctx: Context<'_>, receiver: User, count: i32) -> Result<(), Er
     }
 
     let mut tx = conn.begin().await?;
-
     sqlx::query("UPDATE paws SET amount = amount - $1 WHERE user_id = $2;")
         .bind(count)
         .bind(user_id)
@@ -38,15 +37,16 @@ pub async fn give(ctx: Context<'_>, receiver: User, count: i32) -> Result<(), Er
 
     sqlx::query("INSERT INTO paws (amount, user_id) VALUES ($1, $2) ON CONFLICT(user_id) DO UPDATE SET amount = paws.amount + $1;")
         .bind(count)
-        .bind(receiver.id.get() as i64)
+        .bind(who.id.get() as i64)
         .execute(&mut *tx)
         .await?;
-
     tx.commit().await?;
 
     ctx.reply(format!(
-        "You have {} paws to {}! How nice of you.",
-        count, receiver.name
+        "You gave {} paw{} to <@{}>! How nice of you.",
+        count,
+        if count > 1 { "s" } else { "" },
+        who.id
     ))
     .await?;
 

@@ -1,6 +1,5 @@
 use crate::{Context, Error};
-use futures::future::join_all;
-use poise::serenity_prelude::{CreateEmbed, UserId};
+use poise::serenity_prelude::CreateEmbed;
 
 // A struct to hold the data from our leaderboard query.
 #[derive(sqlx::FromRow)]
@@ -30,25 +29,14 @@ pub async fn top(ctx: Context<'_>) -> Result<(), Error> {
     let mut user_in_top_10 = false;
     let mut description_string = format!("🐶 {}\n🧑‍🌾 {}\n", total_paws.0, total_users.0);
 
-    // Asynchronously fetch all user details from Discord in parallel for efficiency.
-    let user_futures: Vec<_> = top_users
-        .iter()
-        .map(|entry| {
-            ctx.serenity_context()
-                .http
-                .get_user(UserId::from(entry.user_id as u64))
-        })
-        .collect();
-    let users = join_all(user_futures).await;
-
     for (i, entry) in top_users.iter().enumerate() {
         let rank = i + 1;
-        let user_name = match &users[i] {
-            Ok(user) => user.name.clone(),
-            Err(_) => format!("`ID: {}`", entry.user_id), // Fallback to ID if user fetch fails
-        };
+        let ranked_user_id = entry.user_id;
 
-        let line = format!("{}. {} - **{}** paws\n", rank, user_name, entry.amount);
+        let line = format!(
+            "{}. <@{}> - **{}** paws\n",
+            rank, ranked_user_id, entry.amount
+        );
         description_string.push_str(&line);
 
         if entry.user_id == user_id {
@@ -69,9 +57,9 @@ pub async fn top(ctx: Context<'_>) -> Result<(), Error> {
         .await?;
 
         if let Some((rank, amount)) = user_rank {
-            let other_furs = format!("... _{} other furries_\n", rank - 11);
+            let other_furs = format!("... _{} other furries_ ...\n", rank - 11);
             description_string.push_str(&other_furs);
-            let desc = format!("{}. {} - **{}** paws", rank, ctx.author().name, amount);
+            let desc = format!("{}. <@{}> - **{}** paws", rank, ctx.author().id, amount);
             description_string.push_str(&desc);
         } else {
             description_string.push_str("...");
