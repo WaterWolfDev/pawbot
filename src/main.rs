@@ -48,12 +48,10 @@ async fn main() {
         }
     }
     drop(shutdown_tx);
-    info!("Shutdown signal broadcasted.");
-    info!("Waiting for all tasks to finish...");
 
     let _ = tokio::time::timeout(Duration::from_secs(10), poise_handle).await;
     let _ = tokio::time::timeout(Duration::from_secs(10), webserver_handle).await;
 
-    info!("All services have been shut down. Exiting.");
+    info!("exiting");
 
 }

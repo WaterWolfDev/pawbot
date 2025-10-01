@@ -41,7 +41,7 @@ pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: Str
     let shard_manager = client.shard_manager.clone();
     let graceful_shutdown_future = async move {
         receiver.changed().await.ok();
-        info!("Poise bot received shutdown signal. Shutting down...");
+        info!("shutting down...");
         // Use the shard manager to gracefully shut down the bot.
         shard_manager.shutdown_all().await;
     };
@@ -52,9 +52,7 @@ pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: Str
                 error!("Poise client error: {:?}", why);
             }
         },
-        _ = graceful_shutdown_future => {
-            info!("Poise bot shutdown process completed.");
-        },
+        _ = graceful_shutdown_future => {},
     }
 }
 
