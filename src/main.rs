@@ -5,6 +5,7 @@ use log::{error, info};
 use sqlx::{Pool, Postgres};
 use std::time::Duration;
 use std::{env, error};
+use sqlx::pool::PoolOptions;
 use tokio::sync::watch;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
@@ -33,9 +34,13 @@ async fn main() {
     let guild_id = env::var("DISCORD_GUILD_ID").expect("missing DISCORD_GUILD_ID");
     let db_url = env::var("DATABASE_URL").expect("missing DATABASE_URL");
 
-    let conn = Pool::connect(&db_url)
+    let conn: Pool<Postgres> = PoolOptions::new()
+        .max_connections(10)
+        .min_connections(2)
+        .idle_timeout(Some(Duration::from_secs(300)))
+        .connect(db_url.as_str())
         .await
-        .expect("Can't connect to database");
+        .expect("couldn't connect to database");
 
     sqlx::migrate!("./migrations")
         .run(&conn)
