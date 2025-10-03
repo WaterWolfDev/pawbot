@@ -30,6 +30,7 @@ async fn main() {
     let (shutdown_tx, shutdown_rx) = watch::channel(());
 
     let token = env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN");
+    let guild_id = env::var("DISCORD_GUILD_ID").expect("missing DISCORD_GUILD_ID");
     let db_url = env::var("DATABASE_URL").expect("missing DATABASE_URL");
 
     let conn = Pool::connect(&db_url)
@@ -41,7 +42,7 @@ async fn main() {
         .await
         .expect("Couldn't run migrations");
 
-    let poise_handle = tokio::spawn(paws::client(conn.clone(), shutdown_rx.clone(), token));
+    let poise_handle = tokio::spawn(paws::client(conn.clone(), shutdown_rx.clone(), token, guild_id));
     let webserver_handle = tokio::spawn(webserver::new(conn.clone(), shutdown_rx.clone()));
 
     match tokio::signal::ctrl_c().await {
