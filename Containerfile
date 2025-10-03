@@ -54,4 +54,4 @@ WORKDIR /pawbot
 
 ENTRYPOINT ["/bin/pawbot"]
 
-EXPOSE 3000
+EXPOSE 8080

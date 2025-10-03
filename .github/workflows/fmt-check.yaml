@@ -1,3 +1,10 @@
+name: fmt & check
+
+on:
+  push:
+    branches-ignore:
+      - main
+
 jobs:
   fmt-check:
     name: fmt & check
@@ -19,6 +26,3 @@ jobs:
         run: cargo fmt --check || true
       - name: Cargo check
         run: cargo check
-
-on:
-  push:

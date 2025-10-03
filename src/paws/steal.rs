@@ -116,7 +116,7 @@ pub async fn steal(ctx: Context<'_>, who: User, count: i32) -> Result<(), Error>
 }
 
 fn build_steal_result(won: bool, count: i32, new_count: i32, target: User) -> String {
-    let name = target.name.clone();
+    let user_id = target.id;
     let outcome_phrase = if won { "paid off" } else { "sucked" };
     let result_verb = if won { "stole" } else { "gave" };
     let result_target_prefix = if won { "from" } else { "to" };
@@ -131,7 +131,7 @@ fn build_steal_result(won: bool, count: i32, new_count: i32, target: User) -> St
     let plural_s_new_count = if new_count == 1 { "" } else { "s" };
 
     format!(
-        "Your thievery {outcome_phrase}, you {result_verb} {count} paw{plural_s_count} {result_target_prefix} {name}, \
+        "Your thievery {outcome_phrase}, you {result_verb} {count} paw{plural_s_count} {result_target_prefix} <@{user_id}>, \
         {preposition_phrase} a total of {new_count} paw{plural_s_new_count}. \
         {trend_emoji}"
     )
