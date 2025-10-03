@@ -1,16 +1,16 @@
-use log::{error, info};
-use sqlx::{Pool, Postgres};
 use crate::{AppState, Context, Error};
+use log::{error, info};
 use poise::serenity_prelude as serenity;
+use sqlx::{Pool, Postgres};
 use tokio::sync::watch::Receiver;
 
 pub mod balance;
 pub mod daily;
+pub mod event_handler;
 pub mod gamble;
 pub mod give;
 pub mod steal;
 pub mod top;
-pub mod event_handler;
 
 pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: String) -> () {
     let intents =
@@ -31,7 +31,6 @@ pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: Str
             })
         })
         .build();
-
 
     let mut client = serenity::ClientBuilder::new(token, intents)
         .framework(framework)

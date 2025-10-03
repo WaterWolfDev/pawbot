@@ -1,12 +1,12 @@
-use std::ops::Add;
+use crate::{AppState, CooldownAction, Error};
 use log::{debug, info};
 use poise::serenity_prelude as serenity;
 use rand::{random_bool, random_range};
 use serenity::builder::CreateMessage;
 use sqlx::{Pool, Postgres};
-use time::ext::NumericalDuration;
+use std::ops::Add;
 use time::OffsetDateTime;
-use crate::{AppState, CooldownAction, Error};
+use time::ext::NumericalDuration;
 
 const WHITELIST_CHANNELS: &'static [&'static str] = &[
     "967074642076516367",
@@ -21,7 +21,7 @@ const WHITELIST_CHANNELS: &'static [&'static str] = &[
     "979999280339247125",
     "1050847825723916382",
     "1041479219097645148",
-    "1272161749155446794"
+    "1272161749155446794",
 ];
 
 #[derive(sqlx::FromRow, Debug, PartialEq, Eq, Clone)]
@@ -44,7 +44,9 @@ pub async fn handler(
         }
         serenity::FullEvent::Message { new_message } => {
             let channel_id = new_message.channel_id.get() as i64;
-            if new_message.author.bot || !WHITELIST_CHANNELS.contains(&channel_id.to_string().as_str()) {
+            if new_message.author.bot
+                || !WHITELIST_CHANNELS.contains(&channel_id.to_string().as_str())
+            {
                 return Ok(());
             }
             debug!(
@@ -92,7 +94,7 @@ pub async fn handler(
             let now = OffsetDateTime::now_utc();
 
             if expiry.is_some() && expiry.unwrap().0 > now {
-                return Ok(())
+                return Ok(());
             }
             if random_bool(1.0 / 3.0) && paw.is_err() {
                 debug!(

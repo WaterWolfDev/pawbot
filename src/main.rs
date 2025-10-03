@@ -1,10 +1,10 @@
 mod paws;
 mod webserver;
 
-use sqlx::{Pool, Postgres};
-use std::env;
-use std::time::Duration;
 use log::{error, info};
+use sqlx::{Pool, Postgres};
+use std::time::Duration;
+use std::{env, error};
 use tokio::sync::watch;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
@@ -19,7 +19,7 @@ pub enum CooldownAction {
 pub struct AppState {
     db: Pool<Postgres>,
 }
-type Error = Box<dyn std::error::Error + Send + Sync>;
+type Error = Box<dyn error::Error + Send + Sync>;
 type Context<'a> = poise::Context<'a, AppState, Error>;
 
 #[tokio::main]
@@ -36,7 +36,12 @@ async fn main() {
         .await
         .expect("Can't connect to database");
 
-    let poise_handle = tokio::spawn(paws::client(conn.clone(), shutdown_rx.clone() ,token));
+    sqlx::migrate!("./migrations")
+        .run(&conn)
+        .await
+        .expect("Couldn't run migrations");
+
+    let poise_handle = tokio::spawn(paws::client(conn.clone(), shutdown_rx.clone(), token));
     let webserver_handle = tokio::spawn(webserver::new(conn.clone(), shutdown_rx.clone()));
 
     match tokio::signal::ctrl_c().await {
@@ -44,7 +49,10 @@ async fn main() {
             info!("Ctrl+C received. Initiating graceful shutdown...");
         }
         Err(err) => {
-            error!("Failed to listen for Ctrl+C: {}. Shutting down immediately.", err);
+            error!(
+                "Failed to listen for Ctrl+C: {}. Shutting down immediately.",
+                err
+            );
         }
     }
     drop(shutdown_tx);
@@ -53,5 +61,4 @@ async fn main() {
     let _ = tokio::time::timeout(Duration::from_secs(10), webserver_handle).await;
 
     info!("exiting");
-
 }

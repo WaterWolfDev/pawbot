@@ -12,6 +12,8 @@ CREATE TABLE cooldowns (
     expires timestamptz NOT NULL
 );
 
+-- tracks random paws that have spawned and whether they've been
+-- claimed. this should be periodically cleaned up.
 CREATE TABLE random_paws (
     message_id BIGINT NOT NULL PRIMARY KEY ,
     channel_id BIGINT NOT NULL,

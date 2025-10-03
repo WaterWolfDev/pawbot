@@ -1,0 +1,14 @@
+jobs:
+  fmt-check:
+    name: fmt & check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Cargo fmt
+        # We don't really care about fmt failures.
+        run: cargo fmt --check || true
+      - name: Cargo check
+        run: cargo check
+
+on:
+  push:

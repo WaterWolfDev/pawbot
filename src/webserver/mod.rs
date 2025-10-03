@@ -1,10 +1,4 @@
-use axum::{
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::Html,
-    routing::get,
-};
+use axum::{Router, extract::State, http::StatusCode, response::Html, routing::get};
 use log::{error, info};
 use sqlx::{Pool, Postgres};
 use std::net::SocketAddr;
@@ -28,7 +22,9 @@ pub async fn new(conn: Pool<Postgres>, mut receiver: Receiver<()>) -> () {
     info!("Webserver listening on {}", addr);
 
     axum::serve(listener, router)
-        .with_graceful_shutdown(graceful_shutdown_future).await.expect("Could not start webserver");
+        .with_graceful_shutdown(graceful_shutdown_future)
+        .await
+        .expect("Could not start webserver");
 }
 
 async fn root_handler(State(conn): State<Pool<Postgres>>) -> Html<String> {
