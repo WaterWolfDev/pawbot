@@ -4,10 +4,10 @@ use rand::{random_bool, random_range};
 use std::ops::Add;
 use time::ext::NumericalDuration;
 
-#[poise::command(slash_command)]
+#[poise::command(slash_command, description_localized("en-US", "Test your odds"))]
 pub async fn gamble(
     ctx: Context<'_>,
-    #[description = "Number of paws to gamble"] count: i32,
+    #[description = "How many paws?"] count: i32,
 ) -> Result<(), Error> {
     let user_id = ctx.author().id.get() as i64;
     let conn = &ctx.data().db;

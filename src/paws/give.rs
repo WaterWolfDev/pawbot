@@ -1,8 +1,15 @@
 use crate::{Context, Error};
 use serenity::all::User;
 
-#[poise::command(slash_command)]
-pub async fn give(ctx: Context<'_>, who: User, count: i32) -> Result<(), Error> {
+#[poise::command(
+    slash_command,
+    description_localized("en-US", "Give your paws to another fur.")
+)]
+pub async fn give(
+    ctx: Context<'_>,
+    #[description = "Who do you want to donate paws to?"] who: User,
+    #[description = "How many paws?"] count: i32,
+) -> Result<(), Error> {
     if count > 10 {
         ctx.reply("You can only give away a maximum of 10 paws!".to_string())
             .await?;

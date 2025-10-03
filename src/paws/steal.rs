@@ -5,8 +5,15 @@ use serenity::all::User;
 use std::ops::Add;
 use time::ext::NumericalDuration;
 
-#[poise::command(slash_command)]
-pub async fn steal(ctx: Context<'_>, who: User, count: i32) -> Result<(), Error> {
+#[poise::command(
+    slash_command,
+    description_localized("en-US", "If you're lucky, you might be able to do it...")
+)]
+pub async fn steal(
+    ctx: Context<'_>,
+    #[description = "Who do you want steal paws from?"] who: User,
+    #[description = "How many paws?"] count: i32,
+) -> Result<(), Error> {
     if count > 10 {
         ctx.reply("You can only steal a maximum of 10 paws!".to_string())
             .await?;

@@ -4,7 +4,7 @@ use std::ops::Add;
 use time::ext::NumericalDuration;
 use time::macros::time;
 
-#[poise::command(slash_command)]
+#[poise::command(slash_command, description_localized("en-US", "Claim your daily paw!"))]
 pub async fn daily(ctx: Context<'_>) -> Result<(), Error> {
     let user_id = ctx.author().id.get() as i64;
     let conn = &ctx.data().db;

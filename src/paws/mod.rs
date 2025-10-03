@@ -18,7 +18,7 @@ pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: Str
 
     let framework = poise::Framework::builder()
         .options(poise::FrameworkOptions {
-            commands: vec![paw()],
+            commands: vec![paw(), register()],
             event_handler: |ctx, event, framework, data| {
                 Box::pin(event_handler::handler(ctx, event, framework, data))
             },
@@ -67,5 +67,11 @@ pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: Str
     )
 )]
 pub async fn paw(_ctx: Context<'_>) -> Result<(), Error> {
+    Ok(())
+}
+
+#[poise::command(prefix_command)]
+pub async fn register(ctx: Context<'_>) -> Result<(), Error> {
+    poise::builtins::register_application_commands_buttons(ctx).await?;
     Ok(())
 }
