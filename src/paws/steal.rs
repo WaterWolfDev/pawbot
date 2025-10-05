@@ -89,7 +89,6 @@ pub async fn steal(
     sqlx::query("DELETE FROM cooldowns WHERE user_id = $1 AND action = $2")
         .bind(user_id)
         .bind(CooldownAction::Steal)
-        .bind(ctx.guild_id().unwrap().get() as i64)
         .execute(&mut *tx)
         .await?;
 
