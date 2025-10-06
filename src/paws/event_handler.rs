@@ -5,8 +5,10 @@ use rand::{random_bool, random_range};
 use serenity::builder::CreateMessage;
 use sqlx::{Pool, Postgres};
 use std::ops::Add;
+use std::time::Duration;
 use time::OffsetDateTime;
 use time::ext::NumericalDuration;
+use tokio::time::sleep;
 
 const WHITELIST_CHANNELS: &'static [&'static str] = &[
     "967074642076516367",
@@ -62,11 +64,11 @@ pub async fn handler(
                 let claimed =
                     claim_random_paw(conn, paw.clone(), new_message.author.id.get() as i64).await;
                 if claimed.is_ok() {
-                    new_message
+                    let claimed_message = new_message
                         .reply(
                             ctx,
                             format!(
-                                "<@{}> has claimed a paw and now holds onto {}",
+                                "<@{}> has claimed a paw and now holds onto {}.\n-# This message will self destruct in 5 seconds.",
                                 new_message.author.id.get(),
                                 claimed.unwrap()
                             ),
@@ -80,6 +82,12 @@ pub async fn handler(
                             None,
                         )
                         .await?;
+                    let c_ctx = ctx.clone();
+                    tokio::spawn(async move {
+                        debug!("deleting claim message after 5 seconds");
+                        sleep(Duration::from_secs(5)).await;
+                        claimed_message.delete(c_ctx).await.expect("unable to delete");
+                    });
                 } else {
                     println!("{}", claimed.err().unwrap())
                 }
