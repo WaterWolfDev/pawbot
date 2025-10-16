@@ -30,7 +30,6 @@ pub async fn daily(ctx: Context<'_>) -> Result<(), Error> {
     sqlx::query("DELETE FROM cooldowns WHERE user_id = $1 AND action = $2")
         .bind(user_id)
         .bind(CooldownAction::Paw)
-        .bind(ctx.guild_id().unwrap().get() as i64)
         .execute(&mut *tx)
         .await?;
 
