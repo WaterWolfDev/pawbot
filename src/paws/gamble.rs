@@ -9,6 +9,12 @@ pub async fn gamble(
     ctx: Context<'_>,
     #[description = "How many paws?"] count: i32,
 ) -> Result<(), Error> {
+    if count > 10 {
+        ctx.reply("You can only gamble a maximum of 10 paws!".to_string())
+            .await?;
+        return Ok(());
+    }
+
     let user_id = ctx.author().id.get() as i64;
     let conn = &ctx.data().db;
 
