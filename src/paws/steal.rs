@@ -20,7 +20,7 @@ pub async fn steal(
                 .ephemeral(true)
                 .content("You can only steal a maximum of 10 paws!"),
         )
-            .await?;
+        .await?;
         return Ok(());
     }
 

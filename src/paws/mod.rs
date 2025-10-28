@@ -12,7 +12,12 @@ pub mod give;
 pub mod steal;
 pub mod top;
 
-pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: String, guild_id: String) -> () {
+pub async fn client(
+    conn: Pool<Postgres>,
+    mut receiver: Receiver<()>,
+    token: String,
+    guild_id: String,
+) -> () {
     let guild_id = guild_id.parse::<serenity::GuildId>().unwrap();
     let intents =
         serenity::GatewayIntents::non_privileged() | serenity::GatewayIntents::MESSAGE_CONTENT;
@@ -27,7 +32,8 @@ pub async fn client(conn: Pool<Postgres>, mut receiver: Receiver<()>, token: Str
         })
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_in_guild(ctx, &framework.options().commands, guild_id).await?;
+                poise::builtins::register_in_guild(ctx, &framework.options().commands, guild_id)
+                    .await?;
                 Ok(AppState { db: conn })
             })
         })

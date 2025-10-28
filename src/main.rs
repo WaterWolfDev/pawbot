@@ -2,10 +2,10 @@ mod paws;
 mod webserver;
 
 use log::{error, info};
+use sqlx::pool::PoolOptions;
 use sqlx::{Pool, Postgres};
 use std::time::Duration;
 use std::{env, error};
-use sqlx::pool::PoolOptions;
 use tokio::sync::watch;
 
 #[derive(Clone, Debug, PartialEq, PartialOrd, sqlx::Type)]
@@ -28,7 +28,10 @@ async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
 
-    info!("Starting up Pawbot commit {}", env::var("GIT_HASH").unwrap_or(String::new()));
+    info!(
+        "Starting up Pawbot commit {}",
+        env::var("GIT_HASH").unwrap_or(String::new())
+    );
 
     let (shutdown_tx, shutdown_rx) = watch::channel(());
 
@@ -49,7 +52,12 @@ async fn main() {
         .await
         .expect("Couldn't run migrations");
 
-    let poise_handle = tokio::spawn(paws::client(conn.clone(), shutdown_rx.clone(), token, guild_id));
+    let poise_handle = tokio::spawn(paws::client(
+        conn.clone(),
+        shutdown_rx.clone(),
+        token,
+        guild_id,
+    ));
     let webserver_handle = tokio::spawn(webserver::new(conn.clone(), shutdown_rx.clone()));
 
     match tokio::signal::ctrl_c().await {

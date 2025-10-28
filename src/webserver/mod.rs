@@ -1,7 +1,7 @@
-use std::env;
 use axum::{Router, extract::State, http::StatusCode, response::Html, routing::get};
 use log::{error, info};
 use sqlx::{Pool, Postgres};
+use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tokio::sync::watch::Receiver;
@@ -44,7 +44,9 @@ async fn root_handler(State(conn): State<Pool<Postgres>>) -> Html<String> {
         .unwrap_or((0i64,));
     Html(format!(
         "<h1>Waterwolf Pawbot</h1>{} total paws<br />{} total users<br />commit {}",
-        total_paws.0, total_users.0, env::var("GIT_HASH").unwrap_or(String::from("unknown"))
+        total_paws.0,
+        total_users.0,
+        env::var("GIT_HASH").unwrap_or(String::from("unknown"))
     ))
     .into()
 }

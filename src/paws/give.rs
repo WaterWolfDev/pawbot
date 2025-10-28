@@ -1,5 +1,5 @@
-use poise::CreateReply;
 use crate::{Context, Error};
+use poise::CreateReply;
 use serenity::all::User;
 
 #[poise::command(
@@ -17,7 +17,7 @@ pub async fn give(
                 .ephemeral(true)
                 .content("You can only give a maximum of 10 paws!"),
         )
-            .await?;
+        .await?;
         return Ok(());
     }
 

@@ -15,7 +15,7 @@ pub async fn gamble(
                 .ephemeral(true)
                 .content("You can only gamble a maximum of 10 paws!"),
         )
-            .await?;
+        .await?;
         return Ok(());
     }
 

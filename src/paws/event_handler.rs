@@ -86,7 +86,10 @@ pub async fn handler(
                     tokio::spawn(async move {
                         debug!("deleting claim message after 5 seconds");
                         sleep(Duration::from_secs(5)).await;
-                        claimed_message.delete(c_ctx).await.expect("unable to delete");
+                        claimed_message
+                            .delete(c_ctx)
+                            .await
+                            .expect("unable to delete");
                     });
                 } else {
                     println!("{}", claimed.err().unwrap())
@@ -141,23 +144,34 @@ pub async fn handler(
                 let new_random_id = new_random.id;
                 let new_random_channel_id = new_random.channel_id;
                 tokio::spawn(async move {
-                    debug!("deleting random paw spawn {} after {} minutes if unclaimed", new_random_id.get(), timeout);
+                    debug!(
+                        "deleting random paw spawn {} after {} minutes if unclaimed",
+                        new_random_id.get(),
+                        timeout
+                    );
                     sleep(Duration::from_secs((timeout * 60) as u64)).await;
-                    let claimed: (bool,) = sqlx::query_as("SELECT claimed FROM random_paws WHERE message_id = $1")
-                        .bind(new_random_id.get() as i64)
-                        .fetch_one(&c_conn)
-                        .await.expect("unable to fetch paw state");
+                    let claimed: (bool,) =
+                        sqlx::query_as("SELECT claimed FROM random_paws WHERE message_id = $1")
+                            .bind(new_random_id.get() as i64)
+                            .fetch_one(&c_conn)
+                            .await
+                            .expect("unable to fetch paw state");
                     if claimed.0 {
                         debug!("paw {} was claimed, ignoring", new_random_id);
-                        return
+                        return;
                     } else {
                         debug!("deleting paw spawn {}", new_random_id);
-                        c_ctx.http.delete_message(new_random_channel_id, new_random_id, None).await.expect("unable to delete random paw");
+                        c_ctx
+                            .http
+                            .delete_message(new_random_channel_id, new_random_id, None)
+                            .await
+                            .expect("unable to delete random paw");
                         let mut tx = c_conn.begin().await.expect("unable to start transaction");
                         sqlx::query("UPDATE random_paws SET claimed = true WHERE message_id = $1;")
                             .bind(new_random_id.get() as i64)
                             .execute(&mut *tx)
-                            .await.expect("unable to set paw state");
+                            .await
+                            .expect("unable to set paw state");
                         tx.commit().await.expect("unable to commit transaction");
                     }
                 });
