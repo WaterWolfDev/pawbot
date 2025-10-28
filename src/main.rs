@@ -28,6 +28,8 @@ async fn main() {
     dotenv::dotenv().ok();
     env_logger::init();
 
+    info!("Starting up Pawbot commit {}", env::var("GIT_HASH").unwrap_or(String::new()));
+
     let (shutdown_tx, shutdown_rx) = watch::channel(());
 
     let token = env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN");

@@ -15,7 +15,11 @@ pub async fn steal(
     #[description = "How many paws?"] count: i32,
 ) -> Result<(), Error> {
     if count > 10 {
-        ctx.reply("You can only steal a maximum of 10 paws!".to_string())
+        ctx.send(
+            CreateReply::default()
+                .ephemeral(true)
+                .content("You can only steal a maximum of 10 paws!"),
+        )
             .await?;
         return Ok(());
     }
